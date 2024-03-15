@@ -1,99 +1,102 @@
 #include "shared_ptr.h"
 
+#include <stdexcept>
 
-#include <iostream>
+//template <typename T>
+ControlBlock::ControlBlock()
+        : sharedCount{}
+        , weakCount{}
+{}
+
 
 template <typename T>
 shared_ptr<T>::shared_ptr() 
-	: m_res{}
-	, m_count{new size_t(0)}
+	: m_data{}
+	, m_block{new ControlBlock()}
 {}
 
-template <typename T>
-shared_ptr<T>::~shared_ptr()
-{
-	--(*m_count);
-	if (*m_count == 0) {
-		delete m_res;
-		delete m_count;
-	}
-
-}
 
 template <typename T>
-shared_ptr<T>::shared_ptr(T* rs)
+shared_ptr<T>::shared_ptr(T *rs)
+        : m_data{}
+        , m_block{new ControlBlock()}
 {
-	if (rs.m_res != nullptr) {
-		m_res = rs->m_res;
-		m_count = rs->m_count;
-		++(*m_count);
-
-	} else {
-		m_res = nullptr;
-		m_count = new size_t(0);
+	if (rs != nullptr) {
+                m_data = rs;
+                m_block->sharedCount++;
 	}
-	
 }
+
 
 template <typename T>
-shared_ptr<T>::shared_ptr(const shared_ptr<T>& oth)
+shared_ptr<T>::shared_ptr(const shared_ptr<T>& oth) 
+	: m_block{oth.m_block}
+	, m_data{}
 {
-	if (oth->m_res != nullptr) {
-		m_res = oth.m_res;
-		m_count = oth.m_count;
-		++(*m_count);
+	if (nullptr != oth.m_data) {
+		m_data = oth.m_data;
+		m_block->sharedCount++;
 	}
-	m_res = nullptr;
-	m_count = new size_t(0);
 }
+
 
 template <typename T>
 shared_ptr<T>& shared_ptr<T>::operator=(const shared_ptr<T>& oth)
 {
-	if (this != &oth) {
-		if (m_count && --(*m_count) == 0) {
-			delete m_res;
-			delete m_count;
-        	}
+       if (&oth != this) {
+	       if (0 == m_block->sharedCount && 0 == --m_block->sharedCount) {
+		       delete m_data;
+		       delete m_block;
+	       }
 
-        	m_count = oth->m_count;
+	       m_data = oth.m_data;
+	       m_block = oth.m_block;
+	       m_block->sharedCount++;
+       }
+       return *this;
+}
 
-        	if (oth->m_count == 0) {
-                	m_res = nullptr;
 
-        	} else {
-                	m_res = oth.m_res;
-                	++(*m_count);
-        	}
+template <typename T>
+template <typename Y>
+shared_ptr<T>::shared_ptr(const std::weak_ptr<Y>& oth)
+        : m_block{oth.m_block}
+        , m_data{}
+{
+        if (0 != oth.m_block->sharedCount) {
+                m_data = oth.m_data;
+                m_block->weakCount++;
+        }
+}
+
+
+template <typename T>
+shared_ptr<T>::~shared_ptr()
+{
+	if (0 == --m_block->sharedCount) {
+		delete m_block;
+		delete m_data;
 	}
-	return *this;
 }
 
 
 template <typename T>
 T& shared_ptr<T>::operator*()
 {
-	if (m_res) {
-		return *m_res;
-	} else {
-		std::cerr << "nullptr dereference = runtime error." << std::endl;
-	}
+       if (m_data != nullptr) {	
+	       return *m_data;
+       } else {
+	       throw std::runtime_error("dereferencing nullptr is runtime error!!!");
+       }
 }
+
 
 template <typename T>
 T* shared_ptr<T>::operator->()
-{
-	if (m_res) {
-		return m_res;
-	} else {
-		std::cerr << "Do you wanna see runtime error?" << std::endl;
-	}
+{      
+       if (m_data != nullptr) { 
+               return m_data;
+       } else {
+               throw std::runtime_error("dereferencing nullptr is runtime error"); 
+       }
 }
-
-template <typename T>
-T& shared_ptr<T>::operator[](int index)
-{
-	return m_res[index];
-}
-
-
